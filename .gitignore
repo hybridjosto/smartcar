@@ -1,0 +1,4 @@
+tokens.json
+.DS_Store
+*.log
+.envrc
