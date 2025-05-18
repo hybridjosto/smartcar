@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.envrc
+tokens.json
 
 # C extensions
 *.so
