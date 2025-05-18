@@ -14,9 +14,11 @@ import subprocess
 
 
 # Smartcar settings
-CLIENT_ID = os.getenv("SMARTCAR_CLIENT_ID", "")
-CLIENT_SECRET = os.getenv("SMARTCAR_CLIENT_SECRET", "")
-VEHICLE_ID = os.getenv("SMARTCAR_ID", "")
+CLIENT_ID = os.getenv("SMARTCAR_CLIENT_ID") or "{{ secret('SMARTCAR_CLIENT_ID') }}"
+CLIENT_SECRET = (
+    os.getenv("SMARTCAR_CLIENT_SECRET") or "{{ secret('SMARTCAR_CLIENT_SECRET') }}"
+)
+VEHICLE_ID = os.getenv("SMARTCAR_ID") or "{{ secret('SMARTCAR_ID') }}"
 TOKEN_FILE = "tokens.json"
 TOKEN_URL = "https://auth.smartcar.com/oauth/token"
 AUTH_URL = "https://connect.smartcar.com/oauth/authorize"
@@ -28,8 +30,9 @@ access_token = ""
 headers = {"Authorization": "Bearer"}
 
 # Zappi Settings
-MYENERGI_SERIAL = os.getenv("MYENERGI_SERIAL", "")
-MYENERGI_KEY = os.getenv("MYENERGI_KEY", "")
+MYENERGI_SERIAL = os.getenv("MYENERGI_SERIAL") or "{{ secret('MYENERGI_SERIAL') }}"
+MYENERGI_KEY = os.getenv("MYENERGI_KEY") or "{{ secret('MYENERGI_KEY') }}"
+
 
 logging.basicConfig(
     level=logging.DEBUG,
