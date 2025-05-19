@@ -65,6 +65,8 @@ def refresh_access_token(tokens):
     token_summary = {
         "refreshed_at": tokens["refreshed_at"],
         "expires_at": tokens["expires_at"],
+        "refresh_token": tokens["refresh_token"],
+        "access_token": tokens["access_token"],
         "refreshed_at_unix": tokens["refreshed_at_unix"],
         "expires_at_unix": tokens["expires_at_unix"],
     }
