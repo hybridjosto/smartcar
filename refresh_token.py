@@ -61,6 +61,19 @@ def refresh_access_token(tokens):
     save_tokens(tokens)
     logging.info("Access token refreshed and saved.")
 
+    # Print and log summary
+    token_summary = {
+        "refreshed_at": tokens["refreshed_at"],
+        "expires_at": tokens["expires_at"],
+        "refreshed_at_unix": tokens["refreshed_at_unix"],
+        "expires_at_unix": tokens["expires_at_unix"],
+    }
+
+    logging.info("Token refresh summary:\n%s", json.dumps(token_summary, indent=2))
+    print(json.dumps(token_summary, indent=2))
+
+    return tokens["access_token"]
+
     return tokens["access_token"]
 
 
@@ -71,8 +84,6 @@ if __name__ == "__main__":
 
     try:
         tokens = load_tokens()
-        for item in tokens:
-            print(item)
         refresh_access_token(tokens)
     except Exception as e:
         logging.error(f"Failed to refresh token: {e}")
