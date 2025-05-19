@@ -47,15 +47,17 @@ def refresh_access_token(tokens):
     response.raise_for_status()
 
     token_data = response.json()
+
     now = datetime.now(timezone.utc)
-    expires_at_epoch = time.time() + token_data["expires_in"]
-    expires_at_dt = datetime.fromtimestamp(expires_at_epoch, tz=timezone.utc)
+    expires_at_unix = time.time() + token_data["expires_in"]
+    expires_at_dt = datetime.fromtimestamp(expires_at_unix, tz=timezone.utc)
 
     tokens["access_token"] = token_data["access_token"]
     tokens["refresh_token"] = token_data["refresh_token"]
     tokens["refreshed_at"] = now.isoformat()
+    tokens["refreshed_at_unix"] = now.timestamp()
     tokens["expires_at"] = expires_at_dt.isoformat()
-
+    tokens["expires_at_unix"] = expires_at_unix
     save_tokens(tokens)
     logging.info("Access token refreshed and saved.")
 
@@ -69,6 +71,8 @@ if __name__ == "__main__":
 
     try:
         tokens = load_tokens()
+        for item in tokens:
+            print(item)
         refresh_access_token(tokens)
     except Exception as e:
         logging.error(f"Failed to refresh token: {e}")
