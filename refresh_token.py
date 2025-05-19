@@ -6,8 +6,8 @@ import requests
 from datetime import datetime, timezone
 
 # Smartcar OAuth settings
-CLIENT_ID = os.getenv("SMARTCAR_CLIENT_ID") or "{{ secret('CLIENT_ID') }}"
-CLIENT_SECRET = os.getenv("SMARTCAR_CLIENT_SECRET") or "{{ secret('CLIENT_SECRET') }}"
+CLIENT_ID = "{{ secret('CLIENT_ID') }}"
+CLIENT_SECRET = "{{ secret('CLIENT_SECRET') }}"
 TOKEN_URL = "https://auth.smartcar.com/oauth/token"
 TOKEN_FILE = "tokens.json"
 
@@ -40,7 +40,7 @@ def refresh_access_token(tokens):
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET,
     }
-
+    print(data)
     response = requests.post(TOKEN_URL, data=data)
     logging.debug(f"Response status: {response.status_code}")
     logging.debug(f"Response body: {response.text}")
