@@ -14,11 +14,9 @@ import subprocess
 
 
 # Smartcar settings
-CLIENT_ID = os.getenv("SMARTCAR_CLIENT_ID") or "{{ secret('SMARTCAR_CLIENT_ID') }}"
-CLIENT_SECRET = (
-    os.getenv("SMARTCAR_CLIENT_SECRET") or "{{ secret('SMARTCAR_CLIENT_SECRET') }}"
-)
-VEHICLE_ID = os.getenv("SMARTCAR_ID") or "{{ secret('SMARTCAR_ID') }}"
+CLIENT_ID = os.getenv("SMARTCAR_CLIENT_ID") or "{{ secret('CLIENT_ID') }}"
+CLIENT_SECRET = os.getenv("SMARTCAR_CLIENT_SECRET") or "{{ secret('CLIENT_SECRET') }}"
+VEHICLE_ID = os.getenv("SMARTCAR_ID") or "{{ secret('VEHICLE_ID') }}"
 TOKEN_FILE = "tokens.json"
 TOKEN_URL = "https://auth.smartcar.com/oauth/token"
 AUTH_URL = "https://connect.smartcar.com/oauth/authorize"
