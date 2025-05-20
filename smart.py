@@ -11,6 +11,7 @@ import urllib.parse as urlparse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
 import subprocess
+from datetime import datetime, timezone
 
 
 # Smartcar settings
@@ -128,6 +129,7 @@ class SmartcarTokenManager:
             "redirect_uri": REDIRECT_URI,
         }
 
+        now = datetime.now(timezone.utc)
         logging.debug("Exchanging code for tokens...")
         response = requests.post(TOKEN_URL, data=token_data)
         logging.debug("Token exchange response:", response.status_code, response.text)
@@ -138,6 +140,7 @@ class SmartcarTokenManager:
             "access_token": token_json["access_token"],
             "refresh_token": token_json["refresh_token"],
             "expires_at": time.time() + token_json["expires_in"],
+            "refreshed_at": now.isoformat(),
         }
         self._save_tokens()
 
