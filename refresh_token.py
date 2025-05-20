@@ -18,6 +18,14 @@ logging.basicConfig(
 )
 
 
+def put_kv(namespace, key, value):
+    url = f"http://rpi.local:8080/api/v1/namespaces/{namespace}/kv/{key}"
+    headers = {"Content-Type": "application/json"}
+    response = requests.put(url, headers=headers, data=value)
+    response.raise_for_status()
+    return response
+
+
 def load_tokens():
     if not os.path.exists(TOKEN_FILE):
         raise FileNotFoundError(f"{TOKEN_FILE} not found.")
@@ -87,6 +95,10 @@ if __name__ == "__main__":
     try:
         tokens = load_tokens()
         refresh_access_token(tokens)
+        put_kv("smartcar", "smartcar_access_token", tokens["access_token"])
+        put_kv("smartcar", "smartcar_refresh_token", tokens["refresh_token"])
+        put_kv("smartcar", "smartcar_expiry_date", tokens["expires_at"])
+
     except Exception as e:
         logging.error(f"Failed to refresh token: {e}")
         exit(1)
