@@ -19,7 +19,7 @@ logging.basicConfig(
 
 
 def put_kv(namespace, key, value):
-    url = f"http://rpi.local:8080/api/v1/namespaces/{namespace}/kv/{key}"
+    url = f"http://localhost:8080/api/v1/namespaces/{namespace}/kv/{key}"
     headers = {"Content-Type": "application/json"}
     response = requests.put(url, headers=headers, data=value)
     response.raise_for_status()
