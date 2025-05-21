@@ -1,12 +1,13 @@
+import os
 import json
 import logging
 import requests
 from requests.auth import HTTPDigestAuth
 
 TOKEN_FILE = "tokens.json"
-VEHICLE_ID = "{{ secret('VEHICLE_ID') }}"
-MYENERGI_SERIAL = "{{ secret('MYENERGI_SERIAL') }}"
-MYENERGI_KEY = "{{ secret('MYENERGI_KEY') }}"
+VEHICLE_ID = os.getenv("VEHICLE_ID", "")
+MYENERGI_SERIAL = os.getenv("MYENERGI_SERIAL", "")
+MYENERGI_KEY = os.getenv("MYENERGI_KEY", "")
 
 logging.basicConfig(level=logging.INFO)
 
