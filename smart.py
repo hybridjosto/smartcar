@@ -10,14 +10,12 @@ from requests.auth import HTTPDigestAuth
 import urllib.parse as urlparse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
-import subprocess
-from datetime import datetime, timezone
 
 
 # Smartcar settings
-CLIENT_ID = os.getenv("SMARTCAR_CLIENT_ID") or "{{ secret('CLIENT_ID') }}"
-CLIENT_SECRET = os.getenv("SMARTCAR_CLIENT_SECRET") or "{{ secret('CLIENT_SECRET') }}"
-VEHICLE_ID = os.getenv("SMARTCAR_ID") or "{{ secret('VEHICLE_ID') }}"
+CLIENT_ID = os.getenv("SMARTCAR_CLIENT_ID", "")
+CLIENT_SECRET = os.getenv("SMARTCAR_CLIENT_SECRET", "")
+VEHICLE_ID = os.getenv("SMARTCAR_VEHICLE_ID", "")
 TOKEN_FILE = "tokens.json"
 TOKEN_URL = "https://auth.smartcar.com/oauth/token"
 AUTH_URL = "https://connect.smartcar.com/oauth/authorize"
@@ -29,9 +27,8 @@ access_token = ""
 headers = {"Authorization": "Bearer"}
 
 # Zappi Settings
-MYENERGI_SERIAL = os.getenv("MYENERGI_SERIAL") or "{{ secret('MYENERGI_SERIAL') }}"
-MYENERGI_KEY = os.getenv("MYENERGI_KEY") or "{{ secret('MYENERGI_KEY') }}"
-
+MYENERGI_SERIAL = os.getenv("MYENERGI_SERIAL", "")
+MYENERGI_KEY = os.getenv("MYENERGI_KEY", "")
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -42,21 +39,6 @@ logging.basicConfig(
         logging.StreamHandler(),  # optional: still logs to console
     ],
 )
-
-
-def get_skate_secret(key):
-    try:
-        result = subprocess.run(
-            ["skate", "get", key],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Failed to get {key}: {e.stderr.strip()}")
-        return None
 
 
 class SmartcarTokenManager:
@@ -129,7 +111,6 @@ class SmartcarTokenManager:
             "redirect_uri": REDIRECT_URI,
         }
 
-        now = datetime.now(timezone.utc)
         logging.debug("Exchanging code for tokens...")
         response = requests.post(TOKEN_URL, data=token_data)
         logging.debug("Token exchange response:", response.status_code, response.text)
@@ -140,7 +121,6 @@ class SmartcarTokenManager:
             "access_token": token_json["access_token"],
             "refresh_token": token_json["refresh_token"],
             "expires_at": time.time() + token_json["expires_in"],
-            "refreshed_at": now.isoformat(),
         }
         self._save_tokens()
 
@@ -241,6 +221,7 @@ def is_charging():
     status_json = response.json()
     zappi_mode = status_json.get("zmo", "")
     charging = status_json.get("sta", "")
+    # Status  1=Paused 3=Diverting/Charging 5=Complete
     return zappi_mode != "4" and charging == "3"
 
 
@@ -272,6 +253,11 @@ if __name__ == "__main__":
     if not MYENERGI_SERIAL or not MYENERGI_KEY:
         logging.error("Zappi ID or Secret not set in environment variables.")
         exit(1)
+
+    if not is_charging():
+        logging.info("Not Charging")
+        exit(1)
+
     token_manager = SmartcarTokenManager(CLIENT_ID, CLIENT_SECRET)
 
     vehicle = VEHICLE_ID
