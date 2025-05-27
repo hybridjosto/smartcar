@@ -219,9 +219,11 @@ def is_charging():
     url = f"/cgi-jstatus-Z{MYENERGI_SERIAL}"
     response = zappi_request(url)
     status_json = response.json()
-    zappi_mode = status_json.get("zmo", "")
-    charging = status_json.get("sta", "")
+    zappi_mode = status_json['zappi'][0].get("zmo", "")
+    charging = status_json['zappi'][0].get("sta", "")
     # Status  1=Paused 3=Diverting/Charging 5=Complete
+    logging.debug(status_json)
+    logging.debug(f"mode ={zappi_mode}, status={charging}")
     return zappi_mode != "4" and charging == "3"
 
 
