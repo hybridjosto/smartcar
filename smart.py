@@ -51,14 +51,14 @@ class SmartcarTokenManager:
     def _load_tokens(self):
         if os.path.exists(self.token_file):
             with open(self.token_file, "r") as f:
-                logging.debug(f"Loaded tokens from {self.token_file}")
+                logging.info(f"Loaded tokens from {self.token_file}")
                 return json.load(f)
         return {}
 
     def _save_tokens(self):
         with open(self.token_file, "w") as f:
             json.dump(self.tokens, f)
-            logging.debug(f"Tokens saved to {self.token_file}")
+            logging.info(f"Tokens saved to {self.token_file}")
 
     def has_tokens(self):
         return "refresh_token" in self.tokens
@@ -71,7 +71,7 @@ class SmartcarTokenManager:
 
     def get_access_token(self):
         if not self.has_tokens():
-            logging.debug("No refresh token found. Starting full OAuth flow...")
+            logging.info("No refresh token found. Starting full OAuth flow...")
             self._run_initial_auth_flow()
         elif self._is_access_token_expired():
             self._refresh_access_token()
@@ -86,7 +86,7 @@ class SmartcarTokenManager:
             "client_secret": self.client_secret,
         }
 
-        logging.debug("Refreshing access token...")
+        logging.info("Refreshing access token...")
         response = requests.post(TOKEN_URL, data=data)
         logging.debug(
             "Refresh token response: %s %s", response.status_code, response.text
@@ -111,7 +111,7 @@ class SmartcarTokenManager:
             "redirect_uri": REDIRECT_URI,
         }
 
-        logging.debug("Exchanging code for tokens...")
+        logging.info("Exchanging code for tokens...")
         response = requests.post(TOKEN_URL, data=token_data)
         logging.debug("Token exchange response:", response.status_code, response.text)
         response.raise_for_status()
@@ -158,7 +158,7 @@ class SmartcarTokenManager:
             "mode": "live",
         }
         full_auth_url = AUTH_URL + "?" + urlparse.urlencode(params)
-        logging.debug("Opening browser for authentication...")
+        logging.info("Opening browser for authentication...")
         webbrowser.open(full_auth_url)
 
         server_thread.join()
@@ -171,7 +171,7 @@ class SmartcarTokenManager:
 
 def get_vehicle_info():
     headers = {"Authorization": f"Bearer {access_token}"}
-    logging.debug("Sending request to get vehicle IDs")
+    logging.info("Sending request to get vehicle IDs")
     vehicle_ids_resp = requests.get(
         "https://api.smartcar.com/v2.0/vehicles", headers=headers
     )
@@ -197,7 +197,7 @@ def check_battery_level(vehicle_id):
     battery_resp.raise_for_status()
     battery = battery_resp.json()
 
-    logging.debug(
+    logging.info(
         f"Battery percent remaining: {battery['percentRemaining'] * 100:.1f}%"
     )
     if battery["percentRemaining"] >= 0.8:
@@ -215,7 +215,7 @@ def zappi_request(url):
 
 
 def is_charging():
-    logging.debug("Checking if charging...")
+    logging.info("Checking if charging...")
     url = f"/cgi-jstatus-Z{MYENERGI_SERIAL}"
     response = zappi_request(url)
     status_json = response.json()
@@ -230,7 +230,7 @@ def is_charging():
 def stop_charging():
     # === Step 5: stop charging ===
     if is_charging():
-        logging.debug("Stopping charging...")
+        logging.info("Stopping charging...")
         # Add your logic to stop charging here
         # "stop" mode string
         stop_mode = "4-0-0-0000"
@@ -241,7 +241,7 @@ def stop_charging():
         # Make the request
         response = zappi_request(url)
         response.raise_for_status()
-        logging.debug("Charging stopped successfully. %s", response.text)
+        logging.info("Charging stopped successfully. %s", response.text)
     pass
 
 
