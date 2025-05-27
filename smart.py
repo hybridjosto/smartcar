@@ -32,54 +32,60 @@ ZAPPI_STOP_MODE_STRING = "4-0-0-0000"
 
 class SmartcarError(Exception):
     """Base exception for Smartcar operations."""
+
     pass
 
 
 class TokenError(SmartcarError):
     """Exception raised for token-related errors."""
+
     pass
 
 
 class VehicleError(SmartcarError):
     """Exception raised for vehicle-related errors."""
+
     pass
 
 
 class ChargingError(SmartcarError):
     """Exception raised for charging-related errors."""
+
     pass
 
 
 @dataclass
 class Config:
     """Configuration class for environment variables."""
+
     smartcar_client_id: str
     smartcar_client_secret: str
     smartcar_vehicle_id: str
     myenergi_serial: str
     myenergi_key: str
     discord_webhook_url: Optional[str] = None
-    
+
     @classmethod
-    def from_env(cls) -> 'Config':
+    def from_env(cls) -> "Config":
         """Create config from environment variables."""
         required_vars = {
-            'smartcar_client_id': 'SMARTCAR_CLIENT_ID',
-            'smartcar_client_secret': 'SMARTCAR_CLIENT_SECRET', 
-            'smartcar_vehicle_id': 'SMARTCAR_VEHICLE_ID',
-            'myenergi_serial': 'MYENERGI_SERIAL',
-            'myenergi_key': 'MYENERGI_KEY'
+            "smartcar_client_id": "SMARTCAR_CLIENT_ID",
+            "smartcar_client_secret": "SMARTCAR_CLIENT_SECRET",
+            "smartcar_vehicle_id": "SMARTCAR_VEHICLE_ID",
+            "myenergi_serial": "MYENERGI_SERIAL",
+            "myenergi_key": "MYENERGI_KEY",
         }
-        
+
         config_data = {}
         for key, env_var in required_vars.items():
             value = os.getenv(env_var)
             if not value:
                 raise ValueError(f"Required environment variable {env_var} not set")
             config_data[key] = value
-            
-        config_data['discord_webhook_url'] = os.getenv('DISCORD_WEBHOOK_URL')
+
+        config_data["discord_webhook_url"] = os.getenv("DISCORD_WEBHOOK_URL")
         return cls(**config_data)
+
 
 def setup_logging() -> None:
     """Configure application logging."""
@@ -99,10 +105,12 @@ setup_logging()
 
 class SmartcarTokenManager:
     """Manages Smartcar OAuth tokens with automatic refresh."""
-    
-    def __init__(self, client_id: str, client_secret: str, token_file: str = TOKEN_FILE) -> None:
+
+    def __init__(
+        self, client_id: str, client_secret: str, token_file: str = TOKEN_FILE
+    ) -> None:
         """Initialize token manager.
-        
+
         Args:
             client_id: Smartcar client ID
             client_secret: Smartcar client secret
@@ -153,14 +161,14 @@ class SmartcarTokenManager:
             self._run_initial_auth_flow()
         elif self._is_access_token_expired():
             return self._refresh_access_token()
-        
+
         return self.tokens["access_token"]
 
     def _refresh_access_token(self) -> str:
         """Refresh access token using refresh token."""
         if "refresh_token" not in self.tokens:
             raise TokenError("No refresh token available")
-            
+
         data = {
             "grant_type": "refresh_token",
             "refresh_token": self.tokens["refresh_token"],
@@ -205,7 +213,9 @@ class SmartcarTokenManager:
         logging.info("Exchanging code for tokens...")
         try:
             response = requests.post(TOKEN_URL, data=token_data, timeout=30)
-            logging.debug("Token exchange response: %s %s", response.status_code, response.text)
+            logging.debug(
+                "Token exchange response: %s %s", response.status_code, response.text
+            )
             response.raise_for_status()
         except requests.RequestException as e:
             logging.error(f"Failed to exchange code for tokens: {e}")
@@ -241,7 +251,7 @@ class SmartcarTokenManager:
                     self.send_response(400)
                     self.end_headers()
                     self.wfile.write(b"Authorization failed.")
-                    
+
             def log_message(self, format: str, *args: Any) -> None:
                 """Suppress default HTTP server logs."""
                 pass
@@ -274,7 +284,7 @@ class SmartcarTokenManager:
             logging.info(f"Please manually visit: {full_auth_url}")
 
         server_thread.join(timeout=300)  # 5 minute timeout
-        
+
         if server_thread.is_alive():
             logging.error("Authorization timeout")
             raise TokenError("Authorization flow timed out after 5 minutes")
@@ -287,43 +297,45 @@ class SmartcarTokenManager:
 
 class SmartcarClient:
     """Client for interacting with Smartcar API."""
-    
+
     def __init__(self, token_manager: SmartcarTokenManager) -> None:
         """Initialize Smartcar client.
-        
+
         Args:
             token_manager: Token manager for authentication
         """
         self.token_manager = token_manager
-    
+
     def _get_headers(self) -> Dict[str, str]:
         """Get authorization headers with current access token."""
         access_token = self.token_manager.get_access_token()
         return {"Authorization": f"Bearer {access_token}"}
-    
+
     def get_vehicle_info(self) -> str:
         """Get first vehicle ID from user's vehicles.
-        
+
         Returns:
             Vehicle ID string
-            
+
         Raises:
             VehicleError: If unable to retrieve vehicle information
         """
         headers = self._get_headers()
         logging.info("Sending request to get vehicle IDs")
-        
+
         try:
             vehicle_ids_resp = requests.get(
                 "https://api.smartcar.com/v2.0/vehicles", headers=headers, timeout=30
             )
-            logging.debug("Vehicle ID response status: %s", vehicle_ids_resp.status_code)
+            logging.debug(
+                "Vehicle ID response status: %s", vehicle_ids_resp.status_code
+            )
             logging.debug("Vehicle ID response body: %s", vehicle_ids_resp.text)
             vehicle_ids_resp.raise_for_status()
         except requests.RequestException as e:
             logging.error(f"Failed to get vehicle IDs: {e}")
             raise VehicleError(f"Failed to retrieve vehicle IDs: {e}")
-        
+
         try:
             vehicles_data = vehicle_ids_resp.json()
             if not vehicles_data.get("vehicles"):
@@ -333,25 +345,26 @@ class SmartcarClient:
             logging.error(f"Invalid vehicle response: {e}")
             raise VehicleError(f"Invalid vehicle response: {e}")
 
-
-    def check_battery_level(self, vehicle_id: str, charging_controller: 'ChargingController') -> None:
+    def check_battery_level(
+        self, vehicle_id: str, charging_controller: "ChargingController"
+    ) -> None:
         """Check battery level and stop charging if above threshold.
-        
+
         Args:
             vehicle_id: ID of vehicle to check
             charging_controller: Controller for managing charging
-            
+
         Raises:
             VehicleError: If unable to retrieve battery information
         """
         headers = self._get_headers()
         logging.debug(f"Requesting battery info for vehicle {vehicle_id}")
-        
+
         try:
             battery_resp = requests.get(
                 f"https://api.smartcar.com/v2.0/vehicles/{vehicle_id}/battery",
                 headers=headers,
-                timeout=30
+                timeout=30,
             )
             logging.debug("Battery response status: %s", battery_resp.status_code)
             logging.debug("Battery response body: %s", battery_resp.text)
@@ -362,9 +375,9 @@ class SmartcarClient:
 
         try:
             battery = battery_resp.json()
-            battery_percentage = battery['percentRemaining'] * 100
+            battery_percentage = battery["percentRemaining"] * 100
             logging.info(f"Battery percent remaining: {battery_percentage:.1f}%")
-            
+
             if battery["percentRemaining"] >= BATTERY_THRESHOLD:
                 charging_controller.stop_charging()
         except (KeyError, ValueError) as e:
@@ -374,52 +387,53 @@ class SmartcarClient:
 
 class ChargingController:
     """Controller for managing Zappi charging operations."""
-    
+
     def __init__(self, config: Config) -> None:
         """Initialize charging controller.
-        
+
         Args:
             config: Configuration containing MyEnergi credentials
         """
         self.config = config
-    
+
     def _zappi_request(self, url: str) -> requests.Response:
         """Make authenticated request to MyEnergi API.
-        
+
         Args:
             url: API endpoint path
-            
+
         Returns:
             Response object
-            
+
         Raises:
             ChargingError: If request fails
         """
         final_url = MYENERGI_BASE_URL + url
         try:
             response = requests.get(
-                final_url, 
-                auth=HTTPDigestAuth(self.config.myenergi_serial, self.config.myenergi_key),
-                timeout=30
+                final_url,
+                auth=HTTPDigestAuth(
+                    self.config.myenergi_serial, self.config.myenergi_key
+                ),
+                timeout=30,
             )
             return response
         except requests.RequestException as e:
             logging.error(f"Zappi request failed: {e}")
             raise ChargingError(f"Failed to communicate with Zappi: {e}")
 
-
     def is_charging(self) -> bool:
         """Check if Zappi is currently charging.
-        
+
         Returns:
             True if charging, False otherwise
-            
+
         Raises:
             ChargingError: If unable to get charging status
         """
         logging.info("Checking if charging...")
         url = f"/cgi-jstatus-Z{self.config.myenergi_serial}"
-        
+
         try:
             response = self._zappi_request(url)
             response.raise_for_status()
@@ -427,7 +441,7 @@ class ChargingController:
         except (requests.RequestException, ValueError) as e:
             logging.error(f"Failed to get charging status: {e}")
             raise ChargingError(f"Failed to get charging status: {e}")
-        
+
         try:
             zappi_data = status_json["zappi"][0]
             zappi_mode = zappi_data.get("zmo", "")
@@ -435,23 +449,27 @@ class ChargingController:
             # Status  1=Paused 3=Diverting/Charging 5=Complete
             logging.debug("Zappi status: %s", status_json)
             logging.debug(f"mode={zappi_mode}, status={charging_status}")
-            return zappi_mode != ZAPPI_STOP_MODE and charging_status == ZAPPI_CHARGING_STATUS
+            return (
+                zappi_mode
+                != ZAPPI_STOP_MODE
+                # and charging_status == ZAPPI_CHARGING_STATUS
+            )
         except (KeyError, IndexError) as e:
             logging.error(f"Invalid zappi response format: {e}")
             raise ChargingError(f"Invalid zappi response format: {e}")
 
-
     def stop_charging(self) -> None:
         """Stop charging if currently charging.
-        
+
         Raises:
             ChargingError: If unable to stop charging
         """
         if not self.is_charging():
             logging.info("Not currently charging, no action needed")
             return
-            
+
         logging.info("Stopping charging...")
+
         url = f"/cgi-zappi-mode-Z{self.config.myenergi_serial}-{ZAPPI_STOP_MODE_STRING}"
 
         try:
@@ -465,18 +483,18 @@ class ChargingController:
 
 class NotificationService:
     """Service for sending notifications."""
-    
+
     def __init__(self, config: Config) -> None:
         """Initialize notification service.
-        
+
         Args:
             config: Configuration containing webhook URL
         """
         self.config = config
-    
+
     def send_discord_notification(self, message: str) -> None:
         """Send notification to Discord webhook.
-        
+
         Args:
             message: Message to send
         """
@@ -491,7 +509,9 @@ class NotificationService:
         }
 
         try:
-            response = requests.post(self.config.discord_webhook_url, json=data, timeout=30)
+            response = requests.post(
+                self.config.discord_webhook_url, json=data, timeout=30
+            )
             response.raise_for_status()
             logging.info("Discord notification sent successfully")
         except requests.RequestException as e:
@@ -509,7 +529,7 @@ def main() -> None:
     # Initialize services
     charging_controller = ChargingController(config)
     notification_service = NotificationService(config)
-    
+
     # Check if currently charging
     try:
         if not charging_controller.is_charging():
@@ -521,7 +541,9 @@ def main() -> None:
         exit(1)
 
     # Initialize Smartcar services
-    token_manager = SmartcarTokenManager(config.smartcar_client_id, config.smartcar_client_secret)
+    token_manager = SmartcarTokenManager(
+        config.smartcar_client_id, config.smartcar_client_secret
+    )
     smartcar_client = SmartcarClient(token_manager)
 
     try:
