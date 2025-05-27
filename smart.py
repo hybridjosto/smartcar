@@ -219,8 +219,8 @@ def is_charging():
     url = f"/cgi-jstatus-Z{MYENERGI_SERIAL}"
     response = zappi_request(url)
     status_json = response.json()
-    zappi_mode = status_json['zappi'][0].get("zmo", "")
-    charging = status_json['zappi'][0].get("sta", "")
+    zappi_mode = status_json["zappi"][0].get("zmo", "")
+    charging = status_json["zappi"][0].get("sta", "")
     # Status  1=Paused 3=Diverting/Charging 5=Complete
     logging.debug(status_json)
     logging.debug(f"mode ={zappi_mode}, status={charging}")
@@ -245,6 +245,26 @@ def stop_charging():
     pass
 
 
+def discord_webhook(message):
+    webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "")
+    if not webhook_url:
+        logging.error("Discord webhook URL not set in environment variables.")
+        return
+
+    data = {
+        "content": message,
+        "username": "Smartcar Bot",
+        "avatar_url": "https://example.com/avatar.png",  # Replace with your avatar URL
+    }
+
+    try:
+        response = requests.post(webhook_url, json=data)
+        response.raise_for_status()
+        logging.info("Discord notification sent successfully.")
+    except requests.RequestException as e:
+        logging.error(f"Failed to send Discord notification: {e}")
+
+
 # === Example usage ===
 if __name__ == "__main__":
 
@@ -258,6 +278,7 @@ if __name__ == "__main__":
 
     if not is_charging():
         logging.info("Not Charging")
+        discord_webhook("Not charging")
         exit(1)
 
     token_manager = SmartcarTokenManager(CLIENT_ID, CLIENT_SECRET)
