@@ -378,6 +378,7 @@ class SmartcarClient:
             battery_percentage = battery["percentRemaining"] * 100
             logging.info(f"Battery percent remaining: {battery_percentage:.1f}%")
 
+            NotificationService.send_discord_notification(battery_percentage)
             if battery["percentRemaining"] >= BATTERY_THRESHOLD:
                 charging_controller.stop_charging()
         except (KeyError, ValueError) as e:
