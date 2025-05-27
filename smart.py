@@ -346,7 +346,10 @@ class SmartcarClient:
             raise VehicleError(f"Invalid vehicle response: {e}")
 
     def check_battery_level(
-        self, vehicle_id: str, charging_controller: "ChargingController"
+        self,
+        vehicle_id: str,
+        charging_controller: "ChargingController",
+        notification_service: "NotificationService",
     ) -> None:
         """Check battery level and stop charging if above threshold.
 
@@ -377,8 +380,9 @@ class SmartcarClient:
             battery = battery_resp.json()
             battery_percentage = battery["percentRemaining"] * 100
             logging.info(f"Battery percent remaining: {battery_percentage:.1f}%")
-
-            NotificationService.send_discord_notification(battery_percentage)
+            notification_service.send_discord_notification(
+                message=f"Battery percent remaining: {battery_percentage:.1f}%"
+            )
             if battery["percentRemaining"] >= BATTERY_THRESHOLD:
                 charging_controller.stop_charging()
         except (KeyError, ValueError) as e:
@@ -549,7 +553,9 @@ def main() -> None:
 
     try:
         vehicle_id = config.smartcar_vehicle_id
-        smartcar_client.check_battery_level(vehicle_id, charging_controller)
+        smartcar_client.check_battery_level(
+            vehicle_id, charging_controller, notification_service
+        )
     except (TokenError, VehicleError, ChargingError) as e:
         logging.error(f"Application error: {e}")
         exit(1)
