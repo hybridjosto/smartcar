@@ -9,7 +9,10 @@ from datetime import datetime, timezone
 CLIENT_ID = os.getenv("SMARTCAR_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SMARTCAR_CLIENT_SECRET")
 TOKEN_URL = "https://auth.smartcar.com/oauth/token"
-TOKEN_FILE = "tokens.json"
+# retrieve latest token from env var via duckdb in kestra
+ACCESS_TOKEN = os.getenv("SMARTCAR_ACCESS_TOKEN")
+REFRESH_TOKEN = os.getenv("SMARTCAR_REFRESH_TOKEN")
+SMARTCAR_EXPIRES_AT = os.getenv("SMARTCAR_EXPIRES_AT")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,38 +21,18 @@ logging.basicConfig(
 )
 
 
-def put_kv(namespace, key, value):
-    url = f"http://localhost:8080/api/v1/namespaces/{namespace}/kv/{key}"
-    headers = {"Content-Type": "application/json"}
-    response = requests.put(url, headers=headers, data=value)
-    response.raise_for_status()
-    return response
-
-
-def load_tokens():
-    if not os.path.exists(TOKEN_FILE):
-        raise FileNotFoundError(f"{TOKEN_FILE} not found.")
-    with open(TOKEN_FILE, "r") as f:
-        logging.info(f"Loading tokens from {TOKEN_FILE}")
-        return json.load(f)
-
-
 def save_tokens(tokens):
-    with open(TOKEN_FILE, "w") as f:
-        json.dump(tokens, f, indent=2)
-    logging.info(f"Tokens saved to {TOKEN_FILE}")
+    pass
 
 
-def refresh_access_token(tokens):
+def refresh_access_token():
     logging.info("Refreshing access token...")
     data = {
         "grant_type": "refresh_token",
-        "refresh_token": tokens["refresh_token"],
+        "refresh_token": REFRESH_TOKEN,
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET,
     }
-
-    print(data)
 
     response = requests.post(TOKEN_URL, data=data)
     logging.debug(f"Response status: {response.status_code}")
@@ -62,12 +45,12 @@ def refresh_access_token(tokens):
     expires_at_unix = time.time() + token_data["expires_in"]
     expires_at_dt = datetime.fromtimestamp(expires_at_unix, tz=timezone.utc)
 
+    tokens = {}
+
     tokens["access_token"] = token_data["access_token"]
     tokens["refresh_token"] = token_data["refresh_token"]
     tokens["refreshed_at"] = now.isoformat()
-    tokens["refreshed_at_unix"] = now.timestamp()
     tokens["expires_at"] = expires_at_dt.isoformat()
-    tokens["expires_at_unix"] = expires_at_unix
     save_tokens(tokens)
     logging.info("Access token refreshed and saved.")
 
@@ -84,7 +67,7 @@ def refresh_access_token(tokens):
     logging.info("Token refresh summary:\n%s", json.dumps(token_summary, indent=2))
     print(json.dumps(token_summary, indent=2))
 
-    return tokens["access_token"]
+    return tokens
 
 
 if __name__ == "__main__":
@@ -93,11 +76,9 @@ if __name__ == "__main__":
         exit(1)
 
     try:
-        tokens = load_tokens()
-        refresh_access_token(tokens)
-        put_kv("smartcar", "smartcar_access_token", tokens["access_token"])
-        put_kv("smartcar", "smartcar_refresh_token", tokens["refresh_token"])
-        put_kv("smartcar", "smartcar_expiry_date", tokens["expires_at"])
+        new_tokens = refresh_access_token()
+        if new_tokens != {}:
+            save_tokens(new_tokens)
 
     except Exception as e:
         logging.error(f"Failed to refresh token: {e}")
