@@ -103,6 +103,43 @@ def setup_logging() -> None:
 setup_logging()
 
 
+class NotificationService:
+    """Service for sending notifications."""
+
+    def __init__(self, config: Config) -> None:
+        """Initialize notification service.
+
+        Args:
+            config: Configuration containing webhook URL
+        """
+        self.config = config
+
+    def send_discord_notification(self, message: str) -> None:
+        """Send notification to Discord webhook.
+
+        Args:
+            message: Message to send
+        """
+        if not self.config.discord_webhook_url:
+            logging.warning("Discord webhook URL not configured, skipping notification")
+            return
+
+        data = {
+            "content": message,
+            "username": "Smartcar Bot",
+            "avatar_url": "https://example.com/avatar.png",
+        }
+
+        try:
+            response = requests.post(
+                self.config.discord_webhook_url, json=data, timeout=30
+            )
+            response.raise_for_status()
+            logging.info("Discord notification sent successfully")
+        except requests.RequestException as e:
+            logging.error(f"Failed to send Discord notification: {e}")
+
+
 class SmartcarTokenManager:
     """Manages Smartcar OAuth tokens with automatic refresh."""
 
@@ -428,7 +465,7 @@ class ChargingController:
             logging.error(f"Zappi request failed: {e}")
             raise ChargingError(f"Failed to communicate with Zappi: {e}")
 
-    def is_charging(self)  -> bool:
+    def is_charging(self) -> bool:
         """Check if Zappi is currently charging.
 
         Returns:
@@ -452,11 +489,11 @@ class ChargingController:
             zappi_data = status_json["zappi"][0]
             zappi_mode = zappi_data.get("zmo", "")
             charging_status = zappi_data.get("sta", "")
-            charge_amount = zappi_data.get("che","")
+            charge_amount = zappi_data.get("che", "")
             # Status  1=Paused 3=Diverting/Charging 5=Complete
-            logging.debug("Zappi status: %s", json.dumps(status_json,indent=2))
+            logging.debug("Zappi status: %s", json.dumps(status_json, indent=2))
             logging.debug(f"mode={zappi_mode}, status={charging_status}")
-            notifier.send_discord_notification(f"{charge_amount}") 
+            self.notifier.send_discord_notification(f"{charge_amount}")
             return (
                 zappi_mode
                 != ZAPPI_STOP_MODE
@@ -489,43 +526,6 @@ class ChargingController:
             raise ChargingError(f"Failed to stop charging: {e}")
 
 
-class NotificationService:
-    """Service for sending notifications."""
-
-    def __init__(self, config: Config) -> None:
-        """Initialize notification service.
-
-        Args:
-            config: Configuration containing webhook URL
-        """
-        self.config = config
-
-    def send_discord_notification(self, message: str) -> None:
-        """Send notification to Discord webhook.
-
-        Args:
-            message: Message to send
-        """
-        if not self.config.discord_webhook_url:
-            logging.warning("Discord webhook URL not configured, skipping notification")
-            return
-
-        data = {
-            "content": message,
-            "username": "Smartcar Bot",
-            "avatar_url": "https://example.com/avatar.png",
-        }
-
-        try:
-            response = requests.post(
-                self.config.discord_webhook_url, json=data, timeout=30
-            )
-            response.raise_for_status()
-            logging.info("Discord notification sent successfully")
-        except requests.RequestException as e:
-            logging.error(f"Failed to send Discord notification: {e}")
-
-
 def main() -> None:
     """Main application entry point."""
     try:
@@ -535,8 +535,8 @@ def main() -> None:
         exit(1)
 
     # Initialize services
-    charging_controller = ChargingController(config)
     notification_service = NotificationService(config)
+    charging_controller = ChargingController(config, notification_service)
 
     # Check if currently charging
     try:
