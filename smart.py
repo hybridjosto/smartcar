@@ -393,13 +393,14 @@ class SmartcarClient:
 class ChargingController:
     """Controller for managing Zappi charging operations."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, notifier: NotificationService) -> None:
         """Initialize charging controller.
 
         Args:
             config: Configuration containing MyEnergi credentials
         """
         self.config = config
+        self.notifier = notifier
 
     def _zappi_request(self, url: str) -> requests.Response:
         """Make authenticated request to MyEnergi API.
@@ -427,7 +428,7 @@ class ChargingController:
             logging.error(f"Zappi request failed: {e}")
             raise ChargingError(f"Failed to communicate with Zappi: {e}")
 
-    def is_charging(self) -> bool:
+    def is_charging(self)  -> bool:
         """Check if Zappi is currently charging.
 
         Returns:
@@ -451,9 +452,11 @@ class ChargingController:
             zappi_data = status_json["zappi"][0]
             zappi_mode = zappi_data.get("zmo", "")
             charging_status = zappi_data.get("sta", "")
+            charge_amount = zappi_data.get("che","")
             # Status  1=Paused 3=Diverting/Charging 5=Complete
-            logging.debug("Zappi status: %s", status_json)
+            logging.debug("Zappi status: %s", json.dumps(status_json,indent=2))
             logging.debug(f"mode={zappi_mode}, status={charging_status}")
+            notifier.send_discord_notification(f"{charge_amount}") 
             return (
                 zappi_mode
                 != ZAPPI_STOP_MODE
