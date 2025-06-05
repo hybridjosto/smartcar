@@ -499,8 +499,9 @@ class ChargingController:
             charge_amount = zappi_data.get("che", "")
             # Status  1=Paused 3=Diverting/Charging 5=Complete
             logging.debug("Zappi status: %s", json.dumps(status_json, indent=2))
-            logging.debug(f"mode={zappi_mode}, status={charging_status}")
-            self.notifier.send_discord_notification(f"{charge_amount}")
+            zappi_status = f"mode={zappi_mode}, status={charging_status}"
+            logging.debug(zappi_status)
+            self.notifier.send_discord_notification(f"{zappi_status}, {charge_amount}")
             return (
                 zappi_mode
                 != ZAPPI_STOP_MODE
