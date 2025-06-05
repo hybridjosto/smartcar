@@ -64,6 +64,9 @@ class Config:
     myenergi_serial: str
     myenergi_key: str
     discord_webhook_url: Optional[str] = None
+    # Default to False so the application does not check the battery
+    # percentage unless explicitly enabled by the environment variable.
+    check_battery: bool = False
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -84,6 +87,9 @@ class Config:
             config_data[key] = value
 
         config_data["discord_webhook_url"] = os.getenv("DISCORD_WEBHOOK_URL")
+        # CHECK_BATTERY defaults to False until argument support is added.
+        check_battery_env = os.getenv("CHECK_BATTERY", "False")
+        config_data["check_battery"] = check_battery_env.lower() == "true"
         return cls(**config_data)
 
 
@@ -555,10 +561,13 @@ def main() -> None:
     smartcar_client = SmartcarClient(token_manager)
 
     try:
-        vehicle_id = config.smartcar_vehicle_id
-        smartcar_client.check_battery_level(
-            vehicle_id, charging_controller, notification_service
-        )
+        if config.check_battery:
+            vehicle_id = config.smartcar_vehicle_id
+            smartcar_client.check_battery_level(
+                vehicle_id, charging_controller, notification_service
+            )
+        else:
+            logging.info("Battery check disabled; skipping battery level call")
     except (TokenError, VehicleError, ChargingError) as e:
         logging.error(f"Application error: {e}")
         exit(1)
