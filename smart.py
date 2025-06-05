@@ -28,6 +28,7 @@ TOKEN_BUFFER_SECONDS = 60
 ZAPPI_CHARGING_STATUS = "3"
 ZAPPI_STOP_MODE = "4"
 ZAPPI_STOP_MODE_STRING = "4-0-0-0000"
+ENERGY_THRESHOLD_KWH = 28.5
 
 
 class SmartcarError(Exception):
@@ -531,6 +532,30 @@ class ChargingController:
             logging.error(f"Failed to stop charging: {e}")
             raise ChargingError(f"Failed to stop charging: {e}")
 
+    def check_energy_delivered(self) -> None:
+        """Check delivered kWh and stop charging if threshold exceeded."""
+        logging.info("Checking delivered energy...")
+        url = f"/cgi-jstatus-Z{self.config.myenergi_serial}"
+
+        try:
+            response = self._zappi_request(url)
+            response.raise_for_status()
+            status_json = response.json()
+            zappi_data = status_json["zappi"][0]
+            charge_amount = float(zappi_data.get("che", 0))
+        except (requests.RequestException, ValueError, KeyError, IndexError) as e:
+            logging.error(f"Failed to get delivered energy: {e}")
+            raise ChargingError(f"Failed to get delivered energy: {e}")
+
+        logging.debug(f"Delivered energy: {charge_amount} kWh")
+
+        if charge_amount >= ENERGY_THRESHOLD_KWH:
+            message = (
+                f"Energy delivered {charge_amount} kWh reached threshold {ENERGY_THRESHOLD_KWH} kWh. Stopping charge."
+            )
+            self.notifier.send_discord_notification(message)
+            self.stop_charging()
+
 
 def main() -> None:
     """Main application entry point."""
@@ -553,6 +578,11 @@ def main() -> None:
     except ChargingError as e:
         logging.error(f"Failed to check charging status: {e}")
         exit(1)
+
+    try:
+        charging_controller.check_energy_delivered()
+    except ChargingError as e:
+        logging.error(f"Failed to check delivered energy: {e}")
 
     # Initialize Smartcar services
     token_manager = SmartcarTokenManager(
