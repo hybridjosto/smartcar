@@ -472,8 +472,12 @@ class ChargingController:
             logging.error(f"Zappi request failed: {e}")
             raise ChargingError(f"Failed to communicate with Zappi: {e}")
 
-    def is_charging(self) -> bool:
+    def is_charging(self, notify: bool = True) -> bool:
         """Check if Zappi is currently charging.
+
+        Args:
+            notify: When ``True`` send a Discord notification with the current
+                Zappi status. Defaults to ``True``.
 
         Returns:
             True if charging, False otherwise
@@ -501,7 +505,10 @@ class ChargingController:
             logging.debug("Zappi status: %s", json.dumps(status_json, indent=2))
             zappi_status = f"mode={zappi_mode}, status={charging_status}"
             logging.debug(zappi_status)
-            self.notifier.send_discord_notification(f"{zappi_status}, {charge_amount}")
+            if notify:
+                self.notifier.send_discord_notification(
+                    f"{zappi_status}, {charge_amount}"
+                )
             return (
                 zappi_mode
                 != ZAPPI_STOP_MODE
@@ -572,9 +579,8 @@ def main() -> None:
 
     # Check if currently charging
     try:
-        if not charging_controller.is_charging():
+        if not charging_controller.is_charging(notify=False):
             logging.info("Not currently charging")
-            notification_service.send_discord_notification("Not charging")
             return
     except ChargingError as e:
         logging.error(f"Failed to check charging status: {e}")

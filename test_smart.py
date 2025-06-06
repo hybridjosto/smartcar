@@ -48,6 +48,17 @@ class TestEnergyCheck(unittest.TestCase):
             mock_stop.assert_called_once()
             mock_notify.assert_called_once()
 
+    @patch.object(ChargingController, "_zappi_request")
+    def test_is_charging_notify_false_suppresses_notification(self, mock_req):
+        resp = MagicMock()
+        resp.raise_for_status = MagicMock()
+        resp.json.return_value = {"zappi": [{"zmo": "1", "sta": "1", "che": "1"}]}
+        mock_req.return_value = resp
+
+        with patch.object(self.notifier, "send_discord_notification") as mock_notify:
+            self.controller.is_charging(notify=False)
+            mock_notify.assert_not_called()
+
 
 
 if __name__ == "__main__":
