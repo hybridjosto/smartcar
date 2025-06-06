@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cd /home/josh/smartcar
+cd /home/josh/smartcar || exit
 set -a
 source .env
 set +a
