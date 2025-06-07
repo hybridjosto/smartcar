@@ -86,7 +86,8 @@ class TestEnergyCheck(unittest.TestCase):
         )
 
         with patch.object(Config, "from_env", return_value=config):
-            main()
+            with self.assertRaises(SystemExit):
+                main()
 
         mock_charging.check_energy_delivered.assert_not_called()
         mock_client_cls.assert_not_called()
