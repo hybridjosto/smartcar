@@ -428,7 +428,7 @@ class SmartcarClient:
                 message=f"Battery percent remaining: {battery_percentage:.1f}%"
             )
             if battery["percentRemaining"] >= BATTERY_THRESHOLD:
-                charging_controller.stop_charging()
+                charging_controller.stop_charging(skip_check=True)
         except (KeyError, ValueError) as e:
             logging.error(f"Invalid battery response: {e}")
             raise VehicleError(f"Invalid battery response: {e}")
@@ -445,6 +445,11 @@ class ChargingController:
         """
         self.config = config
         self.notifier = notifier
+        # Reuse the HTTPDigestAuth object for all requests to avoid re-creating
+        # it every time a Zappi request is made.
+        self._auth = HTTPDigestAuth(
+            self.config.myenergi_serial, self.config.myenergi_key
+        )
 
     def _zappi_request(self, url: str) -> requests.Response:
         """Make authenticated request to MyEnergi API.
@@ -462,9 +467,7 @@ class ChargingController:
         try:
             response = requests.get(
                 final_url,
-                auth=HTTPDigestAuth(
-                    self.config.myenergi_serial, self.config.myenergi_key
-                ),
+                auth=self._auth,
                 timeout=30,
             )
             return response
@@ -472,10 +475,24 @@ class ChargingController:
             logging.error(f"Zappi request failed: {e}")
             raise ChargingError(f"Failed to communicate with Zappi: {e}")
 
-    def is_charging(self, notify: bool = True) -> bool:
+    def get_status(self) -> Dict[str, Any]:
+        """Retrieve the current Zappi status JSON."""
+        url = f"/cgi-jstatus-Z{self.config.myenergi_serial}"
+        try:
+            response = self._zappi_request(url)
+            response.raise_for_status()
+            return response.json()
+        except (requests.RequestException, ValueError) as e:
+            logging.error(f"Failed to get charging status: {e}")
+            raise ChargingError(f"Failed to get charging status: {e}")
+
+    def is_charging(
+        self, status: Optional[Dict[str, Any]] = None, notify: bool = True
+    ) -> bool:
         """Check if Zappi is currently charging.
 
         Args:
+            status: Optional pre-fetched Zappi status to evaluate.
             notify: When ``True`` send a Discord notification with the current
                 Zappi status. Defaults to ``True``.
 
@@ -486,15 +503,9 @@ class ChargingController:
             ChargingError: If unable to get charging status
         """
         logging.info("Checking if charging...")
-        url = f"/cgi-jstatus-Z{self.config.myenergi_serial}"
-
-        try:
-            response = self._zappi_request(url)
-            response.raise_for_status()
-            status_json = response.json()
-        except (requests.RequestException, ValueError) as e:
-            logging.error(f"Failed to get charging status: {e}")
-            raise ChargingError(f"Failed to get charging status: {e}")
+        if status is None:
+            status = self.get_status()
+        status_json = status
 
         try:
             zappi_data = status_json["zappi"][0]
@@ -518,13 +529,17 @@ class ChargingController:
             logging.error(f"Invalid zappi response format: {e}")
             raise ChargingError(f"Invalid zappi response format: {e}")
 
-    def stop_charging(self) -> None:
+    def stop_charging(self, skip_check: bool = False) -> None:
         """Stop charging if currently charging.
+
+        Args:
+            skip_check: When ``True`` assume the charger is already known to be
+                charging and skip the additional status request.
 
         Raises:
             ChargingError: If unable to stop charging
         """
-        if not self.is_charging():
+        if not skip_check and not self.is_charging():
             logging.info("Not currently charging, no action needed")
             return
 
@@ -540,27 +555,27 @@ class ChargingController:
             logging.error(f"Failed to stop charging: {e}")
             raise ChargingError(f"Failed to stop charging: {e}")
 
-    def check_energy_delivered(self) -> None:
+    def check_energy_delivered(self, status: Optional[Dict[str, Any]] = None) -> None:
         """Check delivered kWh and stop charging if threshold exceeded."""
         logging.info("Checking delivered energy...")
-        url = f"/cgi-jstatus-Z{self.config.myenergi_serial}"
+        if status is None:
+            status = self.get_status()
 
         try:
-            response = self._zappi_request(url)
-            response.raise_for_status()
-            status_json = response.json()
-            zappi_data = status_json["zappi"][0]
+            zappi_data = status["zappi"][0]
             charge_amount = float(zappi_data.get("che", 0))
-        except (requests.RequestException, ValueError, KeyError, IndexError) as e:
+        except (ValueError, KeyError, IndexError) as e:
             logging.error(f"Failed to get delivered energy: {e}")
             raise ChargingError(f"Failed to get delivered energy: {e}")
 
         logging.debug(f"Delivered energy: {charge_amount} kWh")
 
         if charge_amount >= ENERGY_THRESHOLD_KWH:
-            message = f"Energy delivered {charge_amount} kWh reached threshold {ENERGY_THRESHOLD_KWH} kWh. Stopping charge."
+            message = (
+                f"Energy delivered {charge_amount} kWh reached threshold {ENERGY_THRESHOLD_KWH} kWh. Stopping charge."
+            )
             self.notifier.send_discord_notification(message)
-            self.stop_charging()
+            self.stop_charging(skip_check=True)
 
 
 def main() -> None:
@@ -575,9 +590,10 @@ def main() -> None:
     notification_service = NotificationService(config)
     charging_controller = ChargingController(config, notification_service)
 
-    # Check if currently charging
+    # Fetch current status once and use for all checks
     try:
-        if not charging_controller.is_charging(notify=False):
+        status = charging_controller.get_status()
+        if not charging_controller.is_charging(status=status, notify=False):
             logging.info("Not currently charging")
             return
     except ChargingError as e:
@@ -585,18 +601,19 @@ def main() -> None:
         exit(1)
 
     try:
-        charging_controller.check_energy_delivered()
+        charging_controller.check_energy_delivered(status=status)
     except ChargingError as e:
         logging.error(f"Failed to check delivered energy: {e}")
 
-    # Initialize Smartcar services
-    token_manager = SmartcarTokenManager(
-        config.smartcar_client_id, config.smartcar_client_secret
-    )
-    smartcar_client = SmartcarClient(token_manager)
-
     try:
         if config.check_battery:
+            # Initialize Smartcar services only when the battery check is
+            # enabled to avoid unnecessary file I/O on startup.
+            token_manager = SmartcarTokenManager(
+                config.smartcar_client_id, config.smartcar_client_secret
+            )
+            smartcar_client = SmartcarClient(token_manager)
+
             vehicle_id = config.smartcar_vehicle_id
             smartcar_client.check_battery_level(
                 vehicle_id, charging_controller, notification_service
