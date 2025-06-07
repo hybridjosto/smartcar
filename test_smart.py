@@ -22,6 +22,7 @@ from smart import (
     ENERGY_THRESHOLD_KWH,
 )
 
+
 class TestEnergyCheck(unittest.TestCase):
     def setUp(self):
         self.config = Config(
@@ -48,8 +49,48 @@ class TestEnergyCheck(unittest.TestCase):
             mock_stop.assert_called_once()
             mock_notify.assert_called_once()
 
+    @patch.object(ChargingController, "_zappi_request")
+    def test_is_charging_notify_false_suppresses_notification(self, mock_req):
+        resp = MagicMock()
+        resp.raise_for_status = MagicMock()
+        resp.json.return_value = {"zappi": [{"zmo": "1", "sta": "1", "che": "1"}]}
+        mock_req.return_value = resp
+
+        with patch.object(self.notifier, "send_discord_notification") as mock_notify:
+            self.controller.is_charging(notify=False)
+            mock_notify.assert_not_called()
+
+    @patch("smart.SmartcarClient")
+    @patch("smart.SmartcarTokenManager")
+    @patch("smart.ChargingController")
+    @patch("smart.NotificationService")
+    def test_main_exits_early_when_not_charging(
+        self,
+        mock_notification_cls,
+        mock_charging_cls,
+        mock_token_cls,
+        mock_client_cls,
+    ):
+        from smart import main
+
+        mock_charging = mock_charging_cls.return_value
+        mock_charging.is_charging.return_value = False
+
+        config = Config(
+            smartcar_client_id="id",
+            smartcar_client_secret="secret",
+            smartcar_vehicle_id="veh",
+            myenergi_serial="ser",
+            myenergi_key="key",
+            check_battery=True,
+        )
+
+        with patch.object(Config, "from_env", return_value=config):
+            main()
+
+        mock_charging.check_energy_delivered.assert_not_called()
+        mock_client_cls.return_value.check_battery_level.assert_not_called()
 
 
 if __name__ == "__main__":
     unittest.main()
-
