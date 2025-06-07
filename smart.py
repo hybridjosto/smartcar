@@ -595,7 +595,7 @@ def main() -> None:
         status = charging_controller.get_status()
         if not charging_controller.is_charging(status=status, notify=False):
             logging.info("Not currently charging")
-            return
+            exit(1)
     except ChargingError as e:
         logging.error(f"Failed to check charging status: {e}")
         exit(1)
