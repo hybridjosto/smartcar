@@ -558,9 +558,7 @@ class ChargingController:
         logging.debug(f"Delivered energy: {charge_amount} kWh")
 
         if charge_amount >= ENERGY_THRESHOLD_KWH:
-            message = (
-                f"Energy delivered {charge_amount} kWh reached threshold {ENERGY_THRESHOLD_KWH} kWh. Stopping charge."
-            )
+            message = f"Energy delivered {charge_amount} kWh reached threshold {ENERGY_THRESHOLD_KWH} kWh. Stopping charge."
             self.notifier.send_discord_notification(message)
             self.stop_charging()
 
