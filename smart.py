@@ -39,35 +39,37 @@ def main() -> None:
         if not charging_controller.is_charging(status=status, notify=False):
             logging.info("Not currently charging")
             exit(1)
+        else:
+
+            try:
+                charging_controller.check_energy_delivered(status=status)
+            except ChargingError as e:
+                logging.error(f"Failed to check delivered energy: {e}")
+
+            try:
+                if config.check_battery:
+                    token_manager = SmartcarTokenManager(
+                        config.smartcar_client_id, config.smartcar_client_secret
+                    )
+                    smartcar_client = SmartcarClient(token_manager)
+
+                    vehicle_id = config.smartcar_vehicle_id
+                    smartcar_client.check_battery_level(
+                        vehicle_id, charging_controller, notification_service
+                    )
+                else:
+                    logging.info("Battery check disabled; skipping battery level call")
+            except (TokenError, VehicleError, ChargingError) as e:
+                logging.error(f"Application error: {e}")
+                exit(1)
+            except Exception as e:
+                logging.error(f"Unexpected error: {e}")
+                exit(1)
+
+
     except ChargingError as e:
         logging.error(f"Failed to check charging status: {e}")
         exit(1)
-
-    try:
-        charging_controller.check_energy_delivered(status=status)
-    except ChargingError as e:
-        logging.error(f"Failed to check delivered energy: {e}")
-
-    try:
-        if config.check_battery:
-            token_manager = SmartcarTokenManager(
-                config.smartcar_client_id, config.smartcar_client_secret
-            )
-            smartcar_client = SmartcarClient(token_manager)
-
-            vehicle_id = config.smartcar_vehicle_id
-            smartcar_client.check_battery_level(
-                vehicle_id, charging_controller, notification_service
-            )
-        else:
-            logging.info("Battery check disabled; skipping battery level call")
-    except (TokenError, VehicleError, ChargingError) as e:
-        logging.error(f"Application error: {e}")
-        exit(1)
-    except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        exit(1)
-
 
 if __name__ == "__main__":
     main()
