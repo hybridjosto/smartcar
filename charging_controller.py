@@ -14,7 +14,7 @@ BATTERY_THRESHOLD = 0.8
 ZAPPI_CHARGING_STATUS = "3"
 ZAPPI_STOP_MODE = "4"
 ZAPPI_STOP_MODE_STRING = "4-0-0-0000"
-ENERGY_THRESHOLD_KWH = 28.5
+
 
 
 class ChargingController:
@@ -23,7 +23,9 @@ class ChargingController:
     def __init__(self, config: Config, notifier: NotificationService) -> None:
         self.config = config
         self.notifier = notifier
-        self._auth = HTTPDigestAuth(self.config.myenergi_serial, self.config.myenergi_key)
+        self._auth = HTTPDigestAuth(
+            self.config.myenergi_serial, self.config.myenergi_key
+        )
 
     def _zappi_request(self, url: str) -> requests.Response:
         final_url = MYENERGI_BASE_URL + url
@@ -44,7 +46,9 @@ class ChargingController:
             logging.error(f"Failed to get charging status: {e}")
             raise ChargingError(f"Failed to get charging status: {e}")
 
-    def is_charging(self, status: Optional[Dict[str, Any]] = None, notify: bool = True) -> bool:
+    def is_charging(
+        self, status: Optional[Dict[str, Any]] = None, notify: bool = True
+    ) -> bool:
         logging.info("Checking if charging...")
         if status is None:
             status = self.get_status()
@@ -58,7 +62,9 @@ class ChargingController:
             zappi_status = f"mode={zappi_mode}, status={charging_status}"
             logging.debug(zappi_status)
             if notify:
-                self.notifier.send_discord_notification(f"{zappi_status}, {charge_amount}")
+                self.notifier.send_discord_notification(
+                    f"{zappi_status}, {charge_amount}"
+                )
             return zappi_mode != ZAPPI_STOP_MODE
         except (KeyError, IndexError) as e:
             logging.error(f"Invalid zappi response format: {e}")
@@ -91,9 +97,7 @@ class ChargingController:
 
         logging.debug(f"Delivered energy: {charge_amount} kWh")
 
-        if charge_amount >= ENERGY_THRESHOLD_KWH:
-            message = (
-                f"Energy delivered {charge_amount} kWh reached threshold {ENERGY_THRESHOLD_KWH} kWh. Stopping charge."
-            )
+        if charge_amount >= self.config.energy_threshold_kwh:
+            message = f"Energy delivered {charge_amount} kWh reached threshold {self.config.energy_threshold_kwh} kWh. Stopping charge."
             self.notifier.send_discord_notification(message)
             self.stop_charging(skip_check=True)

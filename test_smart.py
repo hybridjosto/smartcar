@@ -19,7 +19,6 @@ from smart import (
     ChargingController,
     NotificationService,
     Config,
-    ENERGY_THRESHOLD_KWH,
 )
 
 
@@ -31,6 +30,7 @@ class TestEnergyCheck(unittest.TestCase):
             smartcar_vehicle_id="veh",
             myenergi_serial="ser",
             myenergi_key="key",
+            energy_threshold_kwh=25.0,
         )
         self.notifier = NotificationService(self.config)
         self.controller = ChargingController(self.config, self.notifier)
@@ -39,7 +39,7 @@ class TestEnergyCheck(unittest.TestCase):
     def test_check_energy_delivered_triggers_stop(self, mock_req):
         resp = MagicMock()
         resp.raise_for_status = MagicMock()
-        resp.json.return_value = {"zappi": [{"che": ENERGY_THRESHOLD_KWH + 1}]}
+        resp.json.return_value = {"zappi": [{"che": self.config.energy_threshold_kwh + 1}]}
         mock_req.return_value = resp
 
         with patch.object(self.controller, "stop_charging") as mock_stop, patch.object(
@@ -83,6 +83,7 @@ class TestEnergyCheck(unittest.TestCase):
             myenergi_serial="ser",
             myenergi_key="key",
             check_battery=True,
+            energy_threshold_kwh=25.0,
         )
 
         with patch.object(Config, "from_env", return_value=config):

@@ -1,7 +1,7 @@
 import logging
 
-from charging_controller import ChargingController, ENERGY_THRESHOLD_KWH
-from config import Config
+from charging_controller import ChargingController
+from config import Config, load_energy_threshold
 from exceptions import ChargingError, TokenError, VehicleError
 from logging_utils import setup_logging
 from notification_service import NotificationService
