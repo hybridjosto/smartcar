@@ -41,6 +41,7 @@ def main() -> None:
             exit(1)
         else:
 
+            logging.info("charging")
             try:
                 charging_controller.check_energy_delivered(status=status)
             except ChargingError as e:
