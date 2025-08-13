@@ -36,7 +36,7 @@ def main() -> None:
 
     try:
         status = charging_controller.get_status()
-        if not charging_controller.is_charging(status=status, notify=False):
+        if not charging_controller.is_charging(status=status):
             logging.info("Not currently charging")
             exit(1)
         else:

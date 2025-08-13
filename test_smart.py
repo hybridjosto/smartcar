@@ -49,15 +49,16 @@ class TestEnergyCheck(unittest.TestCase):
             mock_stop.assert_called_once()
             mock_notify.assert_called_once()
 
-    @patch.object(ChargingController, "_zappi_request")
-    def test_is_charging_notify_false_suppresses_notification(self, mock_req):
-        resp = MagicMock()
-        resp.raise_for_status = MagicMock()
-        resp.json.return_value = {"zappi": [{"zmo": "1", "sta": "1", "che": "1"}]}
-        mock_req.return_value = resp
+    def test_is_charging_notifies_only_when_charging(self):
+        charging_status = {"zappi": [{"zmo": "1", "sta": "3", "che": "1"}]}
+        idle_status = {"zappi": [{"zmo": "4", "sta": "1", "che": "1"}]}
 
         with patch.object(self.notifier, "send_discord_notification") as mock_notify:
-            self.controller.is_charging(notify=False)
+            assert self.controller.is_charging(status=charging_status)
+            mock_notify.assert_called_once()
+
+        with patch.object(self.notifier, "send_discord_notification") as mock_notify:
+            assert not self.controller.is_charging(status=idle_status)
             mock_notify.assert_not_called()
 
     @patch("smart.SmartcarClient")
