@@ -11,9 +11,9 @@ from notification_service import NotificationService
 
 MYENERGI_BASE_URL = "https://s18.myenergi.net"
 BATTERY_THRESHOLD = 0.8
-ZAPPI_CHARGING_STATUS = "3"
-ZAPPI_STOP_MODE = "4"
-ZAPPI_STOP_MODE_STRING = "4-0-0-0000"
+ZAPPI_CHARGING_STATUS = 3
+ZAPPI_STOP_MODE = 4
+ZAPPI_STOP_MODE_STRING = f"{ZAPPI_STOP_MODE}-0-0-0000"
 
 
 
@@ -52,8 +52,8 @@ class ChargingController:
             status = self.get_status()
         try:
             zappi_data = status["zappi"][0]
-            zappi_mode = zappi_data.get("zmo", "")
-            charging_status = zappi_data.get("sta", "")
+            zappi_mode = int(zappi_data.get("zmo", 0))
+            charging_status = int(zappi_data.get("sta", 0))
             charge_amount = zappi_data.get("che", "")
             logging.debug("Zappi status: %s", json.dumps(status, indent=2))
             zappi_status = f"mode={zappi_mode}, status={charging_status}"
@@ -64,7 +64,7 @@ class ChargingController:
                     f"{zappi_status}, {charge_amount}"
                 )
             return is_charging
-        except (KeyError, IndexError) as e:
+        except (KeyError, IndexError, ValueError) as e:
             logging.error(f"Invalid zappi response format: {e}")
             raise ChargingError(f"Invalid zappi response format: {e}")
 

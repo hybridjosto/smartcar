@@ -50,8 +50,8 @@ class TestEnergyCheck(unittest.TestCase):
             mock_notify.assert_called_once()
 
     def test_is_charging_notifies_only_when_charging(self):
-        charging_status = {"zappi": [{"zmo": "1", "sta": "3", "che": "1"}]}
-        idle_status = {"zappi": [{"zmo": "4", "sta": "1", "che": "1"}]}
+        charging_status = {"zappi": [{"zmo": 1, "sta": 3, "che": "1"}]}
+        idle_status = {"zappi": [{"zmo": 4, "sta": 1, "che": "1"}]}
 
         with patch.object(self.notifier, "send_discord_notification") as mock_notify:
             assert self.controller.is_charging(status=charging_status)
