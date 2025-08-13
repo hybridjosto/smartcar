@@ -46,26 +46,24 @@ class ChargingController:
             logging.error(f"Failed to get charging status: {e}")
             raise ChargingError(f"Failed to get charging status: {e}")
 
-    def is_charging(
-        self, status: Optional[Dict[str, Any]] = None, notify: bool = True
-    ) -> bool:
+    def is_charging(self, status: Optional[Dict[str, Any]] = None) -> bool:
         logging.info("Checking if charging...")
         if status is None:
             status = self.get_status()
-        status_json = status
         try:
-            zappi_data = status_json["zappi"][0]
+            zappi_data = status["zappi"][0]
             zappi_mode = zappi_data.get("zmo", "")
             charging_status = zappi_data.get("sta", "")
             charge_amount = zappi_data.get("che", "")
-            logging.debug("Zappi status: %s", json.dumps(status_json, indent=2))
+            logging.debug("Zappi status: %s", json.dumps(status, indent=2))
             zappi_status = f"mode={zappi_mode}, status={charging_status}"
             logging.debug(zappi_status)
-            if notify:
+            is_charging = zappi_mode != ZAPPI_STOP_MODE
+            if is_charging:
                 self.notifier.send_discord_notification(
                     f"{zappi_status}, {charge_amount}"
                 )
-            return zappi_mode != ZAPPI_STOP_MODE
+            return is_charging
         except (KeyError, IndexError) as e:
             logging.error(f"Invalid zappi response format: {e}")
             raise ChargingError(f"Invalid zappi response format: {e}")
